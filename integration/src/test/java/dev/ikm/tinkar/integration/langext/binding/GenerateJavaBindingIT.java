@@ -35,7 +35,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -90,7 +94,7 @@ public class GenerateJavaBindingIT {
                     Stream.empty(),
                     "IKM Author",
                     "dev.ikm.tinkar.integration.langext.binding",
-                    "BindingsTest",
+                    "BindingTest",
                     UUID.randomUUID(),
                     interpolationConsumer -> {
                         try {
@@ -99,14 +103,10 @@ public class GenerateJavaBindingIT {
                             throw new RuntimeException(e);
                         }
                     },
-                    new BindingHelper(languageCalculator, stampCalculator, fqn -> {
-                        if (fqn.contains("+")){
-                            return fqn.replace("+", " PLUS");
-                        } else if (fqn.contains("/")){
-                            return fqn.replace("/", "_SLASH_");
-                        }
-                        return fqn;
-                    })
+                    new BindingHelper(languageCalculator, stampCalculator, fqn -> fqn
+                            .replace("+", " PLUS")
+                            .replace("/", "_SLASH_")
+                            .replace("-", "_"))
             );
             generateJavaBindingTask.call();
 
