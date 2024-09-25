@@ -25,11 +25,13 @@
                 <artifactId>owl-extension</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>dev.ikm.tinkar.fhir</groupId>
                 <artifactId>fhir-extension</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>dev.ikm.tinkar.ext.binding</groupId>
                 <artifactId>binding-extension</artifactId>
@@ -37,6 +39,7 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -109,55 +112,146 @@
             <artifactId>binding-extension</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-suite-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <configuration>
+                        <!-- Below exports prevent issues running integration tests using IDE -->
+                        <argLine>
+                            --add-exports=org.junit.platform.commons/org.junit.platform.commons.logging=ALL-UNNAMED
+                            --add-exports=org.junit.platform.commons/org.junit.platform.commons.util=ALL-UNNAMED
+                        </argLine>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <outputDirectory>${project.build.directory}/data</outputDirectory>
+                        <stripVersion>true</stripVersion>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 
     <profiles>
         <profile>
-            <id>internal-integration-test-data</id>
+            <id>ikmTestData</id>
             <activation>
                 <property>
-                    <name>!stageOSSRH</name>
+                    <name>!skipIkmTestData</name>
                 </property>
             </activation>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>integration-tests-with-ikm-data</id>
+                                <configuration>
+                                    <groups>!RequiresSdoTestData</groups>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-dependency-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>copy</id>
+                                <id>ikm-integration-test-data-copy</id>
                                 <phase>process-test-resources</phase>
                                 <goals>
                                     <goal>copy</goal>
                                 </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>dev.ikm.tinkar.data</groupId>
+                                            <artifactId>tinkar-starter-data</artifactId>
+                                            <version>${tinkar-starter-data.version}</version>
+                                            <classifier>pb</classifier>
+                                            <type>zip</type>
+                                        </artifactItem>
+                                        <artifactItem>
+                                            <groupId>dev.ikm.tinkar.data</groupId>
+                                            <artifactId>tinkar-starter-data-reasoned</artifactId>
+                                            <version>${tinkar-starter-data.version}</version>
+                                            <classifier>pb</classifier>
+                                            <type>zip</type>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
                             </execution>
                         </executions>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>dev.ikm.tinkar.data</groupId>
-                                    <artifactId>tinkar-starter-data</artifactId>
-                                    <version>${tinkar-starter-data.version}</version>
-                                    <classifier>pb</classifier>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/data</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>dev.ikm.tinkar.data</groupId>
-                                    <artifactId>tinkar-starter-data-reasoned</artifactId>
-                                    <version>${tinkar-starter-data.version}</version>
-                                    <classifier>pb</classifier>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/data</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                            <outputDirectory>${project.build.directory}/data</outputDirectory>
-                            <overWriteReleases>false</overWriteReleases>
-                            <overWriteSnapshots>true</overWriteSnapshots>
-                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>sdoTestData</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>integration-tests-with-sdo-data</id>
+                                <configuration>
+                                    <test>dev.ikm.tinkar.integration.test.SnomedDataTestSuiteWithoutWrites</test>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sdo-integration-test-data-copy</id>
+                                <phase>process-test-resources</phase>
+                                <goals>
+                                    <goal>copy</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>dev.ikm.snomedct.tempdata</groupId>
+                                            <artifactId>isomorphic-results-it-data</artifactId>
+                                            <version>0.0.1</version>
+                                            <classifier>pb</classifier>
+                                            <type>zip</type>
+                                        </artifactItem>
+                                        <artifactItem>
+                                            <groupId>dev.ikm.snomedct.tempdata</groupId>
+                                            <artifactId>owl-to-logical-axiom-it-data</artifactId>
+                                            <version>0.0.1</version>
+                                            <classifier>pb</classifier>
+                                            <type>zip</type>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

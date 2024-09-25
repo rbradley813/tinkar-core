@@ -29,6 +29,7 @@ open module dev.ikm.tinkar.integration.test {
     requires dev.ikm.tinkar.coordinate;
     requires com.google.protobuf;
     requires org.junit.jupiter.api;
+    requires org.junit.platform.suite.api;
     requires dev.ikm.tinkar.integration;
     requires org.slf4j;
     requires com.fasterxml.jackson.core;

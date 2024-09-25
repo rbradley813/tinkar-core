@@ -25,8 +25,12 @@ public class TestConstants {
             createFilePathInTargetFromClassName = (clazz) -> createFilePathInTarget.apply("generated-datastores/%s".formatted(clazz.getSimpleName()));
 
     // IKM Test Data Files
-    public static final File PB_STARTER_DATA = createFilePathInTarget.apply("data/tinkar-starter-data-1.0.0-pb.zip");
-    public static final File PB_STARTER_DATA_REASONED = createFilePathInTarget.apply("data/tinkar-starter-data-reasoned-1.0.0-pb.zip");
+    public static final File PB_STARTER_DATA = createFilePathInTarget.apply("data/tinkar-starter-data-pb.zip");
+    public static final File PB_STARTER_DATA_REASONED = createFilePathInTarget.apply("data/tinkar-starter-data-reasoned-pb.zip");
+
+    // SDO Test Data Files
+    public static final File PB_OWLTOLOGICALAXIOMIT_DATA = createFilePathInTarget.apply("data/owl-to-logical-axiom-it-data-pb.zip");
+    public static final File PB_ISOMORPHICRESULTSIT_DATA = createFilePathInTarget.apply("data/isomorphic-results-it-data-pb.zip");
 
     // Other Helper Files
     public static final File PB_TEST_FILE = createFilePathInTarget.apply("data/tinkar-export-test.pb.zip");
