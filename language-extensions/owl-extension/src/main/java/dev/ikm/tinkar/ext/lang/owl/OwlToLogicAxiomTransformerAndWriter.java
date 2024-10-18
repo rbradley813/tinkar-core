@@ -18,10 +18,12 @@ package dev.ikm.tinkar.ext.lang.owl;
 
 import dev.ikm.tinkar.common.id.IntIdSet;
 import dev.ikm.tinkar.common.id.IntIds;
+import dev.ikm.tinkar.common.id.impl.IntId1Set;
 import dev.ikm.tinkar.common.service.PrimitiveData;
 import dev.ikm.tinkar.common.service.TrackingCallable;
 import dev.ikm.tinkar.common.util.uuid.UuidT5Generator;
 import dev.ikm.tinkar.coordinate.logic.PremiseType;
+import dev.ikm.tinkar.coordinate.stamp.StampCoordinate;
 import dev.ikm.tinkar.coordinate.stamp.StampCoordinateRecord;
 import dev.ikm.tinkar.coordinate.stamp.StampPosition;
 import dev.ikm.tinkar.coordinate.stamp.StampPositionRecord;
@@ -49,7 +51,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -155,27 +159,51 @@ public class OwlToLogicAxiomTransformerAndWriter extends TrackingCallable<Void> 
 
         List<SemanticEntity> owlEntitiesForConcept = new ArrayList<>();
         TreeSet<StampPosition> stampPositions = new TreeSet<>();
+        Set<StampCoordinateRecord> stampCoordinates = new HashSet<>();
 
         for (int owlNid : owlNids) {
             SemanticEntity owlChronology = EntityService.get().getEntityFast(owlNid);
             owlEntitiesForConcept.add(owlChronology);
             for (int stampNid : owlChronology.stampNids().toArray()) {
                 StampEntity stamp = EntityService.get().getStampFast(stampNid);
-                stampPositions.add(StampPositionRecord.make(stamp.time(), stamp.pathNid()));
+                StampPosition stampPosition = StampPositionRecord.make(stamp.time(), stamp.pathNid());
+                stampPositions.add(stampPosition);
+                stampCoordinates.add(StampCoordinateRecord.make(StateSet.ACTIVE, stampPosition, new IntId1Set(stamp.moduleNid())));
             }
         }
+        // ### START: Code being replaced
+//        for (StampPosition stampPosition : stampPositions) {
+//            StampCoordinateRecord stampCoordinateForPosition = StampCoordinateRecord.make(StateSet.ACTIVE, stampPosition);
+//            List<String> owlExpressionsToProcess = new ArrayList<>();
+//
+//            for (SemanticEntity owlEntity : owlEntitiesForConcept) {
+//                Latest<SemanticEntityVersion> latestVersion = stampCoordinateForPosition.stampCalculator().latest(owlEntity);
+//                if (latestVersion.isPresent() && latestVersion.get().active()) {
+//                    SemanticEntityVersion semanticEntityVersion = latestVersion.get();
+//                    // TODO use pattern to get field?
+//                    owlExpressionsToProcess.add((String) semanticEntityVersion.fieldValues().get(0));
+//                }
+//            }
+            // ### END: Code being replaced
 
-        for (StampPosition stampPosition : stampPositions) {
-            StampCoordinateRecord stampCoordinateForPosition = StampCoordinateRecord.make(StateSet.ACTIVE, stampPosition);
+            // ### START: New Code
+        for (StampCoordinateRecord stampCoordinateForPosition : stampCoordinates) {
+            StampPosition stampPosition = stampCoordinateForPosition.stampPosition();
             List<String> owlExpressionsToProcess = new ArrayList<>();
-            for (SemanticEntity owlEntity : owlEntitiesForConcept) {
-                Latest<SemanticEntityVersion> latestVersion = stampCoordinateForPosition.stampCalculator().latest(owlEntity);
-                if (latestVersion.isPresent() && latestVersion.get().active()) {
-                    SemanticEntityVersion semanticEntityVersion = latestVersion.get();
-                    // TODO use pattern to get field?
-                    owlExpressionsToProcess.add((String) semanticEntityVersion.fieldValues().get(0));
-                }
+
+            for (SemanticEntity<SemanticEntityVersion> owlEntity : owlEntitiesForConcept) {
+                stampCoordinateForPosition.stampCalculator().latest(owlEntity).ifPresent(latestVersion -> {
+                    if (latestVersion.active()) {
+                        // TODO use pattern to get field?
+                        owlExpressionsToProcess.add((String) latestVersion.fieldValues().get(0));
+                    }
+                });
             }
+            if (owlExpressionsToProcess.isEmpty()) {
+                continue;
+            }
+            // ### END: New Code
+
             StringBuilder propertyBuilder = new StringBuilder();
             StringBuilder classBuilder = new StringBuilder();
 
