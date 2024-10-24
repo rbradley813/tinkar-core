@@ -23,8 +23,7 @@ import org.eclipse.collections.api.list.ImmutableList;
 public interface ConceptEntity<V extends ConceptEntityVersion>
         extends Entity<V>,
         ConceptChronology<V>,
-        ConceptFacade,
-        IdentifierData {
+        ConceptFacade {
 
     @Override
     ImmutableList<V> versions();

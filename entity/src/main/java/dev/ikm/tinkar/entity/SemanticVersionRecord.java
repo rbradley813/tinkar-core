@@ -32,7 +32,7 @@ import java.util.Objects;
 @RecordBuilder
 public record SemanticVersionRecord(SemanticRecord chronology, int stampNid,
                                     ImmutableList<Object> fieldValues)
-        implements SemanticEntityVersion, SemanticVersionRecordBuilder.With {
+        implements SemanticEntityVersion, ImmutableVersion, SemanticVersionRecordBuilder.With {
 
     public SemanticVersionRecord {
         Validator.notZero(stampNid);
@@ -70,6 +70,9 @@ public record SemanticVersionRecord(SemanticRecord chronology, int stampNid,
             PatternVersionRecord patternEntityVersion = patternEntity.versions().get(0);
             sb.append("\n");
             for (int i = 0; i < fieldValues.size(); i++) {
+                if (i > 0) {
+                    sb.append("\n");
+                }
                 sb.append("Field ");
                 sb.append((i + 1));
                 sb.append(": ‹");
@@ -123,7 +126,7 @@ public record SemanticVersionRecord(SemanticRecord chronology, int stampNid,
                     sb.append(fieldString);
                 }
                 sb.append("› ");
-                sb.append(field.getClass().getSimpleName()).append("\n");
+                sb.append(field.getClass().getSimpleName());
 
             }
         } else {

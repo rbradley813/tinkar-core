@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
@@ -27,14 +28,24 @@ import org.eclipse.collections.api.list.primitive.ImmutableIntList;
 import org.eclipse.collections.impl.factory.primitive.IntLists;
 
 import dev.ikm.elk.snomed.model.Concept;
+import dev.ikm.elk.snomed.model.ConcreteRoleType;
 import dev.ikm.elk.snomed.model.RoleType;
 import dev.ikm.tinkar.common.service.PrimitiveData;
+import dev.ikm.tinkar.common.util.uuid.UuidUtil;
 
 public class ElkSnomedData {
+
+	public static int getNid(long sctid) {
+		UUID uuid = UuidUtil.fromSNOMED("" + sctid);
+		int nid = PrimitiveData.nid(uuid);
+		return nid;
+	}
 
 	private final ConcurrentHashMap<Integer, Concept> nidConceptMap = new ConcurrentHashMap<>();
 
 	private final ConcurrentHashMap<Integer, RoleType> nidRoleTypeMap = new ConcurrentHashMap<>();
+
+	private final ConcurrentHashMap<Integer, ConcreteRoleType> nidConcreteRoleTypeMap = new ConcurrentHashMap<>();
 
 	private final AtomicInteger activeConceptCount = new AtomicInteger();
 
@@ -50,8 +61,8 @@ public class ElkSnomedData {
 		return Collections.unmodifiableCollection(nidRoleTypeMap.values());
 	}
 
-	public RoleType getOrCreateRoleType(int roleNid) {
-		return nidRoleTypeMap.computeIfAbsent(roleNid, RoleType::new);
+	public Collection<ConcreteRoleType> getConcreteRoleTypes() {
+		return Collections.unmodifiableCollection(nidConcreteRoleTypeMap.values());
 	}
 
 	public Concept getConcept(int conceptNid) {
@@ -60,6 +71,22 @@ public class ElkSnomedData {
 
 	public Concept getOrCreateConcept(int conceptNid) {
 		return nidConceptMap.computeIfAbsent(conceptNid, Concept::new);
+	}
+
+	public RoleType getRoleType(int roleNid) {
+		return nidRoleTypeMap.get(roleNid);
+	}
+
+	public RoleType getOrCreateRoleType(int roleNid) {
+		return nidRoleTypeMap.computeIfAbsent(roleNid, RoleType::new);
+	}
+
+	public ConcreteRoleType getConcreteRoleType(int roleNid) {
+		return nidConcreteRoleTypeMap.get(roleNid);
+	}
+
+	public ConcreteRoleType getOrCreateConcreteRoleType(int roleNid) {
+		return nidConcreteRoleTypeMap.computeIfAbsent(roleNid, ConcreteRoleType::new);
 	}
 
 	public int getActiveConceptCount() {
