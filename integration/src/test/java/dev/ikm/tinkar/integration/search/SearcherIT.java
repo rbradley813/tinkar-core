@@ -21,6 +21,7 @@ import dev.ikm.tinkar.common.util.io.FileUtil;
 import dev.ikm.tinkar.composer.Composer;
 import dev.ikm.tinkar.composer.Session;
 import dev.ikm.tinkar.composer.assembler.PatternAssembler;
+import dev.ikm.tinkar.composer.assembler.SemanticAssembler;
 import dev.ikm.tinkar.coordinate.Calculators;
 import dev.ikm.tinkar.coordinate.Coordinates;
 import dev.ikm.tinkar.coordinate.navigation.calculator.NavigationCalculatorWithCache;
@@ -30,10 +31,13 @@ import dev.ikm.tinkar.integration.TestConstants;
 import dev.ikm.tinkar.integration.helper.DataStore;
 import dev.ikm.tinkar.integration.helper.TestHelper;
 import dev.ikm.tinkar.provider.search.Searcher;
+import dev.ikm.tinkar.provider.search.TypeAheadSearch;
+import dev.ikm.tinkar.terms.ConceptFacade;
 import dev.ikm.tinkar.terms.EntityProxy;
 import dev.ikm.tinkar.terms.State;
 import dev.ikm.tinkar.terms.TinkarTerm;
 import org.eclipse.collections.api.factory.Lists;
+import org.eclipse.collections.api.list.MutableList;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -44,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,9 +86,9 @@ public class SearcherIT {
 
     @AfterAll
     public void afterAll() {
+        TestHelper.stopDatabase();
         // delete temporary database
         FileUtil.recursiveDelete(DATASTORE_ROOT);
-        TestHelper.stopDatabase();
     }
 
     @Test
@@ -96,7 +101,7 @@ public class SearcherIT {
         var stampCoordinate = Coordinates.Stamp.DevelopmentLatestActiveOnly();
         var searchResults = stampCoordinate.stampCalculator().search("user", 100);
 
-        assertTrue(searchResults.size() > 0, "Missing search results");
+        assertTrue(searchResults.notEmpty(), "Missing search results");
     }
 
     @Test
@@ -160,7 +165,44 @@ public class SearcherIT {
     }
 
     @Test
-    public void searchConceptsNonExistingMembershipSemantic() throws Exception {
+    public void typeAheadIndexerTest() throws Exception {
+        var stampCoordinate = Coordinates.Stamp.DevelopmentLatestActiveOnly();
+        var languageCoordinate = Coordinates.Language.UsEnglishRegularName();
+        var navigationCoordinate = Coordinates.Navigation.inferred().toNavigationCoordinateRecord();
+        var navigationCalculator = NavigationCalculatorWithCache.getCalculator(stampCoordinate, Lists.immutable.of(languageCoordinate), navigationCoordinate);
+
+        List<ConceptFacade> concepts = TypeAheadSearch.get().typeAheadSuggestions(navigationCalculator, "r", 50);
+        assertEquals(40, concepts.size());
+        // Add a new semantic
+        MutableList<String> list = Lists.mutable.empty();
+        list.add("rAdded");
+        Session session = composer.open(State.ACTIVE, TinkarTerm.USER, TinkarTerm.SOLOR_OVERLAY_MODULE, TinkarTerm.DEVELOPMENT_PATH);
+        session.compose((SemanticAssembler semanticAssembler) -> semanticAssembler
+                .pattern(TinkarTerm.COMMENT_PATTERN)
+                .reference(TinkarTerm.COMMENT)
+                .fieldValues((MutableList<Object> values) -> values
+                        .withAll(list))
+        );
+        concepts = TypeAheadSearch.get().typeAheadSuggestions("r", 50);
+        assertEquals(41, concepts.size());
+        AtomicInteger commentConcepts = new AtomicInteger();
+        concepts.forEach(conceptFacade -> {
+            if (PublicId.equals(conceptFacade.publicId(), TinkarTerm.COMMENT)) {
+                commentConcepts.getAndIncrement();
+            }
+        });
+        assertTrue(concepts.contains(TinkarTerm.COMMENT));
+        assertEquals(1, commentConcepts.get());
+    }
+
+    @Test
+    public void typeAheadMaxResultsTest() throws Exception {
+        List<ConceptFacade> concepts = TypeAheadSearch.get().typeAheadSuggestions("r", 20);
+        assertEquals(20, concepts.size());
+    }
+
+    @Test
+    public void searchConceptsNonExistentMembershipSemantic() throws Exception {
         // test memberPatternId does not exist
         EntityProxy.Concept conceptProxy = EntityProxy.Concept.make(PublicIds.newRandom());
         List<PublicId> conceptIds = Searcher.membersOf(conceptProxy.publicId());

@@ -4739,6 +4739,14 @@ public class TinkarTerm {
     public static final EntityProxy.Concept PROPERTY_PATTERN_IMPLICATION =
             EntityProxy.Concept.make("Property pattern implication (SOLOR)", UUID.fromString("e0de0d09-6e27-5738-bc8f-0fc94bb115fc"));
     /**
+     * Java binding for the concept described as <strong><em>Property sequence (SOLOR)</em></strong>;
+     * identified by UUID: {@code
+     * <a href="http://localhost:8080/terminology/rest/concept/d0d759fd-510f-475a-900e-b1439b4536e1">
+     * d0d759fd-510f-475a-900e-b1439b4536e1</a>}.
+     */
+    public static final EntityProxy.Concept PROPERTY_SEQUENCE =
+            EntityProxy.Concept.make("Property sequence (SOLOR)", UUID.fromString("d0d759fd-510f-475a-900e-b1439b4536e1"));
+    /**
      * Java binding for the concept described as <strong><em>Property set (SOLOR)</em></strong>;
      * identified by UUID: {@code
      * <a href="http://localhost:8080/terminology/rest/concept/e273b5c0-c012-5e53-990c-aec5c2cb33a7">
@@ -6826,6 +6834,9 @@ public class TinkarTerm {
 
     public static final EntityProxy.Concept TINKAR_MODEL_CONCEPT =
             EntityProxy.Concept.make("Tinkar Model concept (SOLOR)", UUID.fromString("bc59d656-83d3-47d8-9507-0e656ea95463"));
+
+	public static final EntityProxy.Concept CONCEPT_MODEL_DATA_ATTRIBUTE = 
+			EntityProxy.Concept.make("Concept model data attribute (SOLOR)", UUID.fromString("e418d7a7-2760-3746-ba2e-253b5e383147"));
 
     /**
      * ConceptProxy for: "Tinkar root concept".

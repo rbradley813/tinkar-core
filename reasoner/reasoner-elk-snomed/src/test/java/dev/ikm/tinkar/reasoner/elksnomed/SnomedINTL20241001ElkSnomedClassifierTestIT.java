@@ -40,20 +40,20 @@ import dev.ikm.elk.snomed.model.Concept;
 import dev.ikm.tinkar.common.service.PrimitiveData;
 import dev.ikm.tinkar.common.util.uuid.UuidUtil;
 
-public class SnomedUS20230901ElkSnomedClassifierTestIT extends SnomedUS20230901ElkSnomedTestBase {
+public class SnomedINTL20241001ElkSnomedClassifierTestIT extends SnomedINTL20241001ElkSnomedTestBase {
 
-	private static final Logger LOG = LoggerFactory.getLogger(SnomedUS20230901ElkSnomedClassifierTestIT.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SnomedINTL20241001ElkSnomedClassifierTestIT.class);
 
 	@Test
 	public void supercs() throws Exception {
 		ArrayList<String> lines = runSnomedReasoner();
-		assertEquals(632106, lines.size());
+		assertEquals(634059, lines.size());
 	}
 
 	@Test
 	public void supercsService() throws Exception {
 		ArrayList<String> lines = runSnomedReasonerService();
-		assertEquals(632106, lines.size());
+		assertEquals(634059, lines.size());
 	}
 
 	private HashMap<Integer, Long> nid_sctid_map;
@@ -139,11 +139,11 @@ public class SnomedUS20230901ElkSnomedClassifierTestIT extends SnomedUS20230901E
 		LOG.error("Miss cnt: " + miss_cnt);
 		LOG.error("Pharma cnt: " + pharma_miss_cnt);
 		LOG.error("Other cnt: " + other_miss_cnt);
-		assertEquals(284, non_snomed_cnt);
+		assertEquals(282, non_snomed_cnt);
 		// TODO this should be 0 after all the data issues are fixed
-		assertEquals(20582, miss_cnt);
-		assertEquals(20274, pharma_miss_cnt);
-		assertEquals(251, other_miss_cnt);
+		assertEquals(21065, miss_cnt);
+		assertEquals(20815, pharma_miss_cnt);
+		assertEquals(194, other_miss_cnt);
 	}
 
 }

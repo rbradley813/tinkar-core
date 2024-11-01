@@ -19,10 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SnomedUS20230901ElkSnomedDataBuilderTestIT extends SnomedUS20230901ElkSnomedTestBase {
+public class SnomedINTL20241001ElkSnomedDataBuilderTestIT extends SnomedINTL20241001ElkSnomedTestBase {
 
 	@SuppressWarnings("unused")
-	private static final Logger LOG = LoggerFactory.getLogger(SnomedUS20230901ElkSnomedDataBuilderTestIT.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SnomedINTL20241001ElkSnomedDataBuilderTestIT.class);
 
 	@Test
 	public void statedPattern() throws Exception {

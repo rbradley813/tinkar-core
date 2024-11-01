@@ -89,6 +89,12 @@ public class EntityVertex implements Vertex, VertexId {
         return newVertex;
     }
 
+    public EntityVertex copyWithNewIndex(int newIndex) {
+        EntityVertex  newVertex = new EntityVertex(this);
+        newVertex.vertexIndex = newIndex;
+        return newVertex;
+    }
+
     public static EntityVertex make(Vertex vertex) {
         EntityVertex entityVertex = new EntityVertex();
         entityVertex.fill(vertex);
@@ -386,7 +392,7 @@ public class EntityVertex implements Vertex, VertexId {
     }
 
     @Override
-    public Optional<Concept> propertyAsConcept(Concept propertyConcept) {
+    public Optional<ConceptFacade> propertyAsConcept(Concept propertyConcept) {
         Optional<?> optionalPropertyValue = property(propertyConcept);
 
         if (optionalPropertyValue.isEmpty()) {
@@ -401,7 +407,7 @@ public class EntityVertex implements Vertex, VertexId {
         if (optionalEntityValue.isEmpty()) {
             throw new IllegalStateException("Entity specified by property is not in database:: " + optionalPropertyValue.get());
         }
-        if (optionalEntityValue.get() instanceof Concept conceptFacade) {
+        if (optionalEntityValue.get() instanceof ConceptFacade conceptFacade) {
             return Optional.of(conceptFacade);
         }
         throw new IllegalStateException("Cannot convert property to concept. Property: " + optionalPropertyValue.get());
@@ -416,7 +422,7 @@ public class EntityVertex implements Vertex, VertexId {
     }
 
     @Override
-    public RichIterable<Concept> propertyKeys() {
+    public RichIterable<ConceptFacade> propertyKeys() {
         if (properties != null) {
             return properties.keySet().collect(nid -> EntityProxy.Concept.make(nid));
         }
