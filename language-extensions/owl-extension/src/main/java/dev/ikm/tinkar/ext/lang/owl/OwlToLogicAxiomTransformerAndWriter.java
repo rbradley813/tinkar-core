@@ -18,6 +18,7 @@ package dev.ikm.tinkar.ext.lang.owl;
 
 import dev.ikm.tinkar.common.id.IntIdSet;
 import dev.ikm.tinkar.common.id.IntIds;
+import dev.ikm.tinkar.common.id.impl.IntId1Set;
 import dev.ikm.tinkar.common.service.PrimitiveData;
 import dev.ikm.tinkar.common.service.TrackingCallable;
 import dev.ikm.tinkar.common.util.uuid.UuidT5Generator;
@@ -28,6 +29,7 @@ import dev.ikm.tinkar.coordinate.stamp.StampPositionRecord;
 import dev.ikm.tinkar.coordinate.stamp.StateSet;
 import dev.ikm.tinkar.coordinate.stamp.calculator.Latest;
 import dev.ikm.tinkar.entity.EntityService;
+import dev.ikm.tinkar.entity.PatternEntityVersion;
 import dev.ikm.tinkar.entity.RecordListBuilder;
 import dev.ikm.tinkar.entity.SemanticEntity;
 import dev.ikm.tinkar.entity.SemanticEntityVersion;
@@ -38,7 +40,6 @@ import dev.ikm.tinkar.entity.SemanticVersionRecordBuilder;
 import dev.ikm.tinkar.entity.StampEntity;
 import dev.ikm.tinkar.entity.graph.DiTreeEntity;
 import dev.ikm.tinkar.entity.graph.adaptor.axiom.LogicalAxiom;
-import dev.ikm.tinkar.entity.graph.adaptor.axiom.LogicalAxiomSemantic;
 import dev.ikm.tinkar.entity.graph.adaptor.axiom.LogicalExpression;
 import dev.ikm.tinkar.entity.graph.isomorphic.IsomorphicResults;
 import dev.ikm.tinkar.entity.graph.isomorphic.IsomorphicResultsLeafHash;
@@ -51,7 +52,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -126,7 +129,8 @@ public class OwlToLogicAxiomTransformerAndWriter extends TrackingCallable<Void> 
             for (TransformationGroup transformationGroup : transformationRecords) {
 
                 try {
-                    transformOwlExpressions(transaction, transformationGroup.conceptNid, transformationGroup.semanticNids, transformationGroup.getPremiseType());
+//                    transformOwlExpressionsOld(transaction, transformationGroup.conceptNid, transformationGroup.semanticNids, transformationGroup.getPremiseType());
+                    transformOwlExpressionsNew(transaction, transformationGroup.conceptNid, transformationGroup.semanticNids, transformationGroup.getPremiseType());
                 } catch (Exception e) {
                     LOG.error("Error in Owl Transform: ", e);
                 }
@@ -152,7 +156,7 @@ public class OwlToLogicAxiomTransformerAndWriter extends TrackingCallable<Void> 
      *
      * @param premiseType the stated
      */
-    private void transformOwlExpressions(Transaction transaction, int conceptNid, int[] owlNids, PremiseType premiseType) throws Exception {
+    private void transformOwlExpressionsOld(Transaction transaction, int conceptNid, int[] owlNids, PremiseType premiseType) throws Exception {
         updateMessage("Converting " + premiseType + " Owl expressions");
 
         List<SemanticEntity> owlEntitiesForConcept = new ArrayList<>();
@@ -217,6 +221,75 @@ public class OwlToLogicAxiomTransformerAndWriter extends TrackingCallable<Void> 
                     stampCoordinateForPosition);
         }
 
+    }
+
+    /**
+     * Transform relationships.
+     *
+     * @param premiseType the stated
+     */
+    private void transformOwlExpressionsNew(Transaction transaction, int conceptNid, int[] owlNids, PremiseType premiseType) throws Exception {
+        updateMessage("Converting " + premiseType + " Owl expressions");
+
+        List<SemanticEntity> owlEntitiesForConcept = new ArrayList<>();
+        Set<StampCoordinateRecord> stampCoordinates = new HashSet<>();
+
+        for (int owlNid : owlNids) {
+            SemanticEntity owlChronology = EntityService.get().getEntityFast(owlNid);
+            owlEntitiesForConcept.add(owlChronology);
+            for (int stampNid : owlChronology.stampNids().toArray()) {
+                StampEntity stamp = EntityService.get().getStampFast(stampNid);
+                if (stamp.stateNid() == State.ACTIVE.nid()) {
+                    StampPosition stampPosition = StampPositionRecord.make(stamp.time(), stamp.pathNid());
+                    stampCoordinates.add(StampCoordinateRecord.make(StateSet.ACTIVE, stampPosition, new IntId1Set(stamp.moduleNid())));
+                }
+            }
+        }
+
+        for (StampCoordinateRecord stampCoordinate : stampCoordinates) {
+            List<String> owlExpressionsToProcess = new ArrayList<>();
+            Latest<PatternEntityVersion> latestOwlAxiomPattern = stampCoordinate.stampCalculator().latest(TinkarTerm.OWL_AXIOM_SYNTAX_PATTERN);
+
+            for (SemanticEntity<SemanticEntityVersion> owlEntity : owlEntitiesForConcept) {
+                stampCoordinate.stampCalculator().latest(owlEntity).ifPresent(latestAxiomSemanticVersion -> {
+                    latestOwlAxiomPattern.ifPresentOrElse(latestPatternVersion -> {
+                                String axiomString = latestPatternVersion.getFieldWithMeaning(TinkarTerm.AXIOM_SYNTAX, latestAxiomSemanticVersion);
+                                owlExpressionsToProcess.add(axiomString);
+                            },
+                            () -> owlExpressionsToProcess.add((String) latestAxiomSemanticVersion.fieldValues().get(0))
+                    );
+                });
+            }
+
+            StringBuilder propertyBuilder = new StringBuilder();
+            StringBuilder classBuilder = new StringBuilder();
+
+            for (String owlExpression : owlExpressionsToProcess) {
+                if (owlExpression.toLowerCase().contains("property")) {
+                    propertyBuilder.append(" ").append(owlExpression);
+                    if (!owlExpression.toLowerCase().contains("objectpropertychain")) {
+                        //TODO ask Michael Lawley if this is ok...
+                        String tempExpression = owlExpression.toLowerCase().replace("subobjectpropertyof", " subclassof");
+                        tempExpression = tempExpression.toLowerCase().replace("subdatapropertyof", " subclassof");
+                        classBuilder.append(" ").append(tempExpression);
+                    }
+                } else {
+                    classBuilder.append(" ").append(owlExpression);
+                }
+
+            }
+            String owlClassExpressionsToProcess = classBuilder.toString();
+            String owlPropertyExpressionsToProcess = propertyBuilder.toString();
+
+            LogicalExpression expression = SctOwlUtilities.sctToLogicalExpression(
+                    owlClassExpressionsToProcess,
+                    owlPropertyExpressionsToProcess);
+
+            addLogicalExpression(transaction, conceptNid,
+                    expression,
+                    stampCoordinate.time(),
+                    stampCoordinate);
+        }
     }
 
     /**
