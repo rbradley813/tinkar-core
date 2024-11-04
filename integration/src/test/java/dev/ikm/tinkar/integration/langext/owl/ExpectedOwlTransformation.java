@@ -224,8 +224,9 @@ public class ExpectedOwlTransformation {
         predecessorMap.put(andRG1Vertex.vertexIndex(), roleGroupVertex1.vertexIndex());
         andRG1ChildIdxs.forEach((andRG1ChildIdx) -> predecessorMap.put(andRG1ChildIdx, andRG1Vertex.vertexIndex()));
         predecessorMap.put(roleValueVertex1.vertexIndex(), roleVertex1.vertexIndex());
-        andRG2ChildIdxs.forEach((andRG2ChildIdx) -> predecessorMap.put(andRG2ChildIdx, andRG2Vertex.vertexIndex()));
         predecessorMap.put(roleValueVertex2.vertexIndex(), roleVertex2.vertexIndex());
+        predecessorMap.put(andRG2Vertex.vertexIndex(), roleGroupVertex2.vertexIndex());
+        andRG2ChildIdxs.forEach((andRG2ChildIdx) -> predecessorMap.put(andRG2ChildIdx, andRG2Vertex.vertexIndex()));
         predecessorMap.put(roleValueVertex3.vertexIndex(), roleVertex3.vertexIndex());
 
         return new DiTreeEntity(definitionRootVertex, vertexMap.toImmutable(), successorMap.toImmutable(), predecessorMap.toImmutable());
@@ -380,8 +381,9 @@ public class ExpectedOwlTransformation {
         predecessorMap.put(andRG1Vertex.vertexIndex(), roleGroupVertex1.vertexIndex());
         andRG1ChildIdxs.forEach((andRG1ChildIdx) -> predecessorMap.put(andRG1ChildIdx, andRG1Vertex.vertexIndex()));
         predecessorMap.put(roleValueVertex1.vertexIndex(), roleVertex1.vertexIndex());
-        andRG2ChildIdxs.forEach((andRG2ChildIdx) -> predecessorMap.put(andRG2ChildIdx, andRG2Vertex.vertexIndex()));
         predecessorMap.put(roleValueVertex2.vertexIndex(), roleVertex2.vertexIndex());
+        predecessorMap.put(andRG2Vertex.vertexIndex(), roleGroupVertex2.vertexIndex());
+        andRG2ChildIdxs.forEach((andRG2ChildIdx) -> predecessorMap.put(andRG2ChildIdx, andRG2Vertex.vertexIndex()));
         predecessorMap.put(roleValueVertex3.vertexIndex(), roleVertex3.vertexIndex());
 
         return new DiTreeEntity(definitionRootVertex, vertexMap.toImmutable(), successorMap.toImmutable(), predecessorMap.toImmutable());
