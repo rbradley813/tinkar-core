@@ -45,6 +45,7 @@ open module dev.ikm.tinkar.integration.test {
     requires dev.ikm.tinkar.ext.binding;
     requires dev.ikm.jpms.recordbuilder.core;
     requires java.compiler;
+    requires dev.ikm.jpms.eclipse.collections;
 
     uses CachingService;
     uses DataServiceController;

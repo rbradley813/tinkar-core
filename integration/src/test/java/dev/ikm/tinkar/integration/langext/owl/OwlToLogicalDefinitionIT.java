@@ -15,6 +15,7 @@
  */
 package dev.ikm.tinkar.integration.langext.owl;
 
+import dev.ikm.tinkar.common.id.PublicId;
 import dev.ikm.tinkar.common.id.PublicIds;
 import dev.ikm.tinkar.composer.Composer;
 import dev.ikm.tinkar.composer.Session;
@@ -26,6 +27,7 @@ import dev.ikm.tinkar.entity.EntityService;
 import dev.ikm.tinkar.entity.PatternEntityVersion;
 import dev.ikm.tinkar.entity.SemanticEntityVersion;
 import dev.ikm.tinkar.entity.graph.DiTreeEntity;
+import dev.ikm.tinkar.entity.graph.EntityVertex;
 import dev.ikm.tinkar.entity.transaction.Transaction;
 import dev.ikm.tinkar.ext.lang.owl.Rf2OwlToLogicAxiomTransformer;
 import dev.ikm.tinkar.integration.TestConstants;
@@ -33,6 +35,11 @@ import dev.ikm.tinkar.integration.helper.DataStore;
 import dev.ikm.tinkar.integration.helper.TestHelper;
 import dev.ikm.tinkar.terms.EntityProxy;
 import dev.ikm.tinkar.terms.State;
+import org.eclipse.collections.api.factory.primitive.IntLists;
+import org.eclipse.collections.api.factory.primitive.IntSets;
+import org.eclipse.collections.api.list.ImmutableList;
+import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.api.set.primitive.MutableIntSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -42,8 +49,10 @@ import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Set;
 
 import static dev.ikm.tinkar.terms.TinkarTerm.AUTHOR_FOR_VERSION;
+import static dev.ikm.tinkar.terms.TinkarTerm.DEFINITION_ROOT;
 import static dev.ikm.tinkar.terms.TinkarTerm.DEVELOPMENT_MODULE;
 import static dev.ikm.tinkar.terms.TinkarTerm.DEVELOPMENT_PATH;
 import static dev.ikm.tinkar.terms.TinkarTerm.EL_PLUS_PLUS_STATED_AXIOMS_PATTERN;
@@ -52,6 +61,7 @@ import static dev.ikm.tinkar.terms.TinkarTerm.OWL_AXIOM_SYNTAX_PATTERN;
 import static dev.ikm.tinkar.terms.TinkarTerm.SOLOR_OVERLAY_MODULE;
 import static dev.ikm.tinkar.terms.TinkarTerm.USER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class OwlToLogicalDefinitionIT {
@@ -97,11 +107,62 @@ public class OwlToLogicalDefinitionIT {
         }
     }
 
+    private boolean isValidLogicalDefinitionDiTree(DiTreeEntity diTree) {
+        //Validate Definition Root exists
+        int definitionRootIndex = diTree.vertexMap().stream()
+                .filter((vertex) -> PublicId.equals(vertex.meaning().publicId(), DEFINITION_ROOT))
+                .map(EntityVertex::vertexIndex)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No Definition Root vertex for Logical Definition."));
+        //Validate vertices are unique
+        ImmutableList<EntityVertex> vertexList = diTree.vertexMap();
+        Set<EntityVertex> vertexSet = vertexList.toSet();
+        if (vertexList.size() != vertexSet.size()) {
+            LOG.error("Logical Definition has duplicate vertices.");
+            return false;
+        }
+        //Validate vertex indexes are unique
+        MutableIntList vertexIndexList = IntLists.mutable.withAll(diTree.vertexMap().stream()
+                .map(EntityVertex::vertexIndex).toList());
+        MutableIntSet vertexIndexSet = vertexIndexList.toSet();
+        if (vertexIndexList.size() != vertexIndexSet.size()) {
+            LOG.error("Logical Definition has duplicate vertex indexes.");
+            return false;
+        }
+        //Validate all vertices (except Definition Root) have a predecessor
+        MutableIntSet predecessorIndexKeys = diTree.predecessorMap().keySet();
+        MutableIntSet predecessorIndexValues = IntSets.mutable.empty();
+        diTree.predecessorMap().forEachValue((valueIndex) -> predecessorIndexValues.addAll(valueIndex));
+        if (!predecessorIndexKeys.containsAll(vertexIndexSet.without(definitionRootIndex))) {
+            LOG.error("Logical Definition has vertices that are not represented in the predecessorMap properly.\n\t\tMisrepresented vertices include: " +
+                    vertexIndexSet.without(definitionRootIndex).withoutAll(predecessorIndexKeys).toList().primitiveStream().mapToObj((idx) -> diTree.vertexMap().get(idx).toString()).toList());
+            return false;
+        }
+        //Validate all non-leaf vertices have a successor
+        MutableIntSet leafVertexIndexSet = vertexIndexSet.withoutAll(predecessorIndexValues);
+        MutableIntSet nonLeafVertexIndexSet = vertexIndexSet.withoutAll(leafVertexIndexSet);
+        MutableIntSet successorIndexKeys = diTree.successorMap().keySet();
+        MutableIntSet successorIndexValues = IntSets.mutable.empty();
+        diTree.successorMap().forEachValue((valueIndex) -> successorIndexValues.addAll(valueIndex));
+        if (!successorIndexKeys.containsAll(nonLeafVertexIndexSet)) {
+            LOG.error("Logical Definition has vertices that are not represented in the successorMap properly.\n\t\tMisrepresented vertices include: " +
+                    nonLeafVertexIndexSet.withoutAll(successorIndexKeys).toList().primitiveStream().mapToObj((idx) -> diTree.vertexMap().get(idx).toString()).toList());
+            return false;
+        }
+        if (!successorIndexKeys.equals(predecessorIndexValues) || !predecessorIndexKeys.equals(successorIndexValues)) {
+            LOG.error("Logical Definition does not properly represent vertex relationships in the predecessorMap and/or successorMap.");
+            return false;
+        }
+        return true;
+    }
+
     @Test
     public void clinicalFindingOwlTransformation() {
         String owlAxiom = "SubClassOf(:[bd83b1dd-5a82-34fa-bb52-06f666420a1c] :[ee9ac5d2-a07c-3981-a57a-f7f26baf38d8])";
-        EntityProxy.Concept testConcept = EntityProxy.Concept.make(PublicIds.of("bd83b1dd-5a82-34fa-bb52-06f666420a1c"));
         long millisTimeStamp = dateStringToEpochMillis("20190731");
+
+        EntityProxy.Concept testConcept = EntityProxy.Concept.make(PublicIds.of("bd83b1dd-5a82-34fa-bb52-06f666420a1c"));
+        DiTreeEntity expectedStatedDiTree = expectedOwlTransformationProvider.expectedClinicalFindingStatedDiTree();
 
         Composer composer = new Composer("clinicalFindingOwlTransformation");
         Session session = composer.open(State.ACTIVE, millisTimeStamp, AUTHOR_FOR_VERSION, DEVELOPMENT_MODULE, DEVELOPMENT_PATH);
@@ -118,7 +179,9 @@ public class OwlToLogicalDefinitionIT {
         SemanticEntityVersion actualLatestStatedDef = (SemanticEntityVersion) stampCalc.latest(actualStatedDefNids[0]).get();
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
-        DiTreeEntity expectedStatedDiTree = expectedOwlTransformationProvider.expectedClinicalFindingStatedDiTree();
+
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
 
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(millisTimeStamp, actualLatestStatedDef.time());
@@ -132,10 +195,12 @@ public class OwlToLogicalDefinitionIT {
     @Test
     public void partOfOwlTransformation() {
         String owlAxiom = "TransitiveObjectProperty(:[b4c3f6f9-6937-30fd-8412-d0c77f8a7f73])";
-        EntityProxy.Concept testConcept = EntityProxy.Concept.make(PublicIds.of("b4c3f6f9-6937-30fd-8412-d0c77f8a7f73"));
-        EntityProxy.Semantic axiomSemantic = EntityProxy.Semantic.make(PublicIds.singleSemanticId(OWL_AXIOM_SYNTAX_PATTERN, testConcept.publicId()));
         long activeMillisTimeStamp = dateStringToEpochMillis("20180731");
         long inactiveMillisTimeStamp = dateStringToEpochMillis("20190131");
+
+        EntityProxy.Concept testConcept = EntityProxy.Concept.make(PublicIds.of("b4c3f6f9-6937-30fd-8412-d0c77f8a7f73"));
+        DiTreeEntity expectedStatedDiTree = expectedOwlTransformationProvider.expectedPartOfStatedDiTree();
+        EntityProxy.Semantic axiomSemantic = EntityProxy.Semantic.make(PublicIds.singleSemanticId(OWL_AXIOM_SYNTAX_PATTERN, testConcept.publicId()));
 
         Composer composer = new Composer("partOfOwlTransformation");
         Session activeSession = composer.open(State.ACTIVE, activeMillisTimeStamp, AUTHOR_FOR_VERSION, DEVELOPMENT_MODULE, DEVELOPMENT_PATH);
@@ -157,7 +222,9 @@ public class OwlToLogicalDefinitionIT {
         SemanticEntityVersion actualLatestStatedDef = (SemanticEntityVersion) stampCalc.latest(actualStatedDefNids[0]).get();
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
-        DiTreeEntity expectedStatedDiTree = expectedOwlTransformationProvider.expectedPartOfStatedDiTree();
+
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
 
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(activeMillisTimeStamp, actualLatestStatedDef.time());
@@ -218,6 +285,9 @@ public class OwlToLogicalDefinitionIT {
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
 
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
+
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp3, actualLatestStatedDef.time());
         assertEquals(USER, actualLatestStatedDef.author());
@@ -274,6 +344,9 @@ public class OwlToLogicalDefinitionIT {
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
 
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
+
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp4, actualLatestStatedDef.time());
         assertEquals(USER, actualLatestStatedDef.author());
@@ -329,6 +402,9 @@ public class OwlToLogicalDefinitionIT {
         SemanticEntityVersion actualLatestStatedDef = (SemanticEntityVersion) stampCalc.latest(actualStatedDefNids[0]).get();
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
+
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
 
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp4, actualLatestStatedDef.time());
@@ -388,6 +464,9 @@ public class OwlToLogicalDefinitionIT {
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
 
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
+
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp3, actualLatestStatedDef.time());
         assertEquals(USER, actualLatestStatedDef.author());
@@ -445,6 +524,9 @@ public class OwlToLogicalDefinitionIT {
         SemanticEntityVersion actualLatestStatedDef = (SemanticEntityVersion) stampCalc.latest(actualStatedDefNids[0]).get();
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
+
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
 
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp3, actualLatestStatedDef.time());
@@ -504,6 +586,9 @@ public class OwlToLogicalDefinitionIT {
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
 
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
+
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp3, actualLatestStatedDef.time());
         assertEquals(USER, actualLatestStatedDef.author());
@@ -561,6 +646,9 @@ public class OwlToLogicalDefinitionIT {
         SemanticEntityVersion actualLatestStatedDef = (SemanticEntityVersion) stampCalc.latest(actualStatedDefNids[0]).get();
 
         DiTreeEntity actualStatedDiTree = latestStatedAxiomPatternVersion.getFieldWithMeaning(EL_PLUS_PLUS_STATED_TERMINOLOGICAL_AXIOMS, actualLatestStatedDef);
+
+        assertTrue(isValidLogicalDefinitionDiTree(actualStatedDiTree), "actualStatedDiTree is not a valid representation of a logical definition " + actualStatedDiTree);
+        assertTrue(isValidLogicalDefinitionDiTree(expectedStatedDiTree), "expectedStatedDiTree is not a valid representation of a logical definition " + expectedStatedDiTree);
 
         assertEquals(State.ACTIVE, actualLatestStatedDef.state());
         assertEquals(timestamp3, actualLatestStatedDef.time());
