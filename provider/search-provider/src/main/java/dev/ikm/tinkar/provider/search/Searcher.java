@@ -105,7 +105,7 @@ public class Searcher {
                     ScoreDoc[] hits = indexSearcher.search(query, maxResultSize).scoreDocs;
                     results = new PrimitiveDataSearchResult[hits.length];
                     for (int i = 0; i < hits.length; i++) {
-                        Document hitDoc = indexSearcher.doc(hits[i].doc);
+                        Document hitDoc = indexSearcher.storedFields().document(hits[i].doc);
                         StoredField nidField = (StoredField) hitDoc.getField(Indexer.NID);
                         StoredField patternNidField = (StoredField) hitDoc.getField(Indexer.PATTERN_NID);
                         StoredField rcNidField = (StoredField) hitDoc.getField(Indexer.RC_NID);
