@@ -39,7 +39,9 @@ public class IntId2Set extends IntId2 implements IntIdSet {
             return true;
         }
         if (obj instanceof IntIdSet intIdSet) {
-            if (intIdSet.size() == 2 && Arrays.equals(this.toArray(), intIdSet.toArray())) {
+            int[] elements1 = Arrays.stream(this.toArray()).sorted().toArray();
+            int[] elements2 = Arrays.stream(intIdSet.toArray()).sorted().toArray();
+            if (intIdSet.size() == 2 && Arrays.equals(elements1, elements2)) {
                 return true;
             }
         }

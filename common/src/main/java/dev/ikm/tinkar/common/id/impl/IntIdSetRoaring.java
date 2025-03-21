@@ -56,8 +56,6 @@ public class IntIdSetRoaring extends RoaringBitmap implements IntIdSet {
             Arrays.sort(elements1);
             int[] elements2 = intIdSet.toArray();
             Arrays.sort(elements2);
-
-
             return Arrays.equals(elements1, elements2);
         }
         return false;

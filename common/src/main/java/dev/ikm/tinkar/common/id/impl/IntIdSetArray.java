@@ -38,14 +38,12 @@ public class IntIdSetArray
     }
 
     public static IntIdSetArray newIntIdSet(int... newElements) {
-        Arrays.sort(newElements);
         return new IntIdSetArray(newElements);
     }
 
     public static IntIdSetArray newIntIdSetAlreadySorted(int... newElements) {
         return new IntIdSetArray(newElements);
     }
-
 
     @Override
     public int size() {
@@ -98,6 +96,8 @@ public class IntIdSetArray
             if (elements.length != intIdSet.size()) {
                 return false;
             }
+            int[] elements1 = elements;
+            Arrays.sort(elements1);
             int[] elements2;
             if (intIdSet instanceof IntIdSetArray intIdSetArray) {
                 elements2 = intIdSetArray.elements;
@@ -105,8 +105,7 @@ public class IntIdSetArray
                 elements2 = intIdSet.toArray();
                 Arrays.sort(elements2);
             }
-
-            if (intIdSet.size() == elements.length && Arrays.equals(elements, elements2)) {
+            if (intIdSet.size() == elements.length && Arrays.equals(elements1, elements2)) {
                 return true;
             }
         }
